@@ -124,17 +124,19 @@ func WriterLoop(db *sql.DB, req chan *common.Field, reqCtr *uint64) {
 			out := strings.Split(err.Error(), "has no column named ")
 			_, err = db.Exec(`ALTER TABLE "` + tableName + `" ADD COLUMN "` + out[1] + `" BLOB`)
 			_, err = db.Exec(query, values...)
-			log.Debug("ERR: %+v", err)
 		}
 		if err != nil {
 			panic(fmt.Sprintf("%+v", err))
 		}
 		iter++
 		atomic.AddUint64(reqCtr, 1)
-		if (iter % 10000) == 9999 {
+		if (iter % 10001) == 10000 {
+			log.Debug("commiting after %d iteration",iter)
 			_, err = db.Exec("COMMIT")
+			_, err = db.Exec("Begin")
+
 		}
 	}
 	db.Exec("COMMIT")
-	log.Debug("Writer extited after %d iterations", iter)
+	log.Debug("Writer exited after %d iterations", iter)
 }

@@ -3,12 +3,14 @@ package main
 import (
 	//	"fmt"
 	"github.com/codegangsta/cli"
-	"github.com/influxdb/influxdb/client/v2"
+	"github.com/influxdata/influxdb/client/v2"
 	"github.com/op/go-logging"
 	//	"gopkg.in/yaml.v2"
 	"github.com/efigence/influxdb-backup/common"
 	"github.com/efigence/influxdb-backup/input"
+	"github.com/efigence/influxdb-backup/input/influxdb1xx"
 	"github.com/efigence/influxdb-backup/output"
+
 	"os"
 	"sync"
 	"time"
@@ -28,6 +30,7 @@ const (
 type Config struct {
 	SourceType      string
 	SourceAddr      string
+	SourceDb        string
 	DebugAddr       string
 	DestinationType string
 	DestinationAddr string
@@ -43,6 +46,9 @@ func main() {
 	log.Info("Starting app")
 	log.Debug("version: %s", version)
 	app := cli.NewApp()
+	i1, err := influxdb1xx.NewInput("http://es1:8086", "root", "root", "stats")
+	log.Errorf("err: %s", err)
+	i1.GetMeasurements()
 	app.Flags = []cli.Flag{
 		cli.StringFlag{
 			Name:        "src-type",
@@ -55,6 +61,12 @@ func main() {
 			Value:       "http://localhost:8086",
 			Usage:       "Source addr",
 			Destination: &cfg.SourceAddr,
+		},
+		cli.StringFlag{
+			Name:        "src-db",
+			Value:       "_internal",
+			Usage:       "Source database",
+			Destination: &cfg.SourceDb,
 		},
 		cli.StringFlag{
 			Name:        "dst-type",
@@ -85,21 +97,23 @@ func main() {
 	if cfg.DebugAddr != "none" {
 		common.RunDebug(cfg.DebugAddr)
 	} else {
-		log.Error("wtf")
 		common.RunDebug("localhost:6060")
 	}
 	log.Notice("Source type: %s, addr: %s", cfg.SourceType, cfg.SourceAddr)
-	influxIn, err := input.NewInflux09("http://localhost:8086", "root", "root", "_internal")
+	influxIn, err := input.NewInflux09(cfg.SourceAddr, "root", "root", cfg.SourceDb)
 	if err != nil {
 		log.Error("input failed: %s", err)
 		os.Exit(1)
 	}
 	sqliteOut, err := output.New(`sqlite`, `t-data/sqlite`)
+	//	sqliteOut, err := output.New(`sqlite`, `/dev/shm/sqlite`)
 	if err != nil {
 		log.Error("output failed: %s", err)
 		os.Exit(1)
 	}
 	series, err := influxIn.GetSeriesList()
+	log.Debug("s--------: %#v", err)
+
 	var wg sync.WaitGroup
 	for _, ser := range series {
 		fields, err := influxIn.GetFieldRangeByName(ser, time.Now().Add(-1*time.Hour), time.Now())

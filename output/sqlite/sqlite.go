@@ -44,7 +44,7 @@ func (out *SQLiteOut) Init(path string) {
 	out.path = path
 	out.leafBits = 2
 	out.spineBits = 4
-	log.Info("Initializing SQLite store in %s using %d dirs and %d files per dir", path, powOf2(out.spineBits), powOf2(out.leafBits))
+	log.Infof("Initializing SQLite store in %s using %d dirs and %d files per dir", path, powOf2(out.spineBits), powOf2(out.leafBits))
 	out.spineMask = ^uint64(0) << (64 - out.spineBits)
 	out.leafMask = powOf2(out.leafBits) - 1
 	os.MkdirAll(path, mode)
